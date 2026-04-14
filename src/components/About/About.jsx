@@ -19,7 +19,7 @@ const About = () => {
         animate={isInView ? { opacity: 1, y: 0 } : {}}
         transition={{ duration: 0.6, ease: 'easeOut' }}
       >
-        <h2 className="text-2xl md:text-3xl font-bold text-center mb-6 md:mb-8">About Me</h2>
+        <h2 className="text-2xl md:text-4xl font-bold text-center mb-6 md:mb-8 bg-gradient-to-r from-amber-400 to-orange-500 bg-clip-text text-transparent">About Me</h2>
         <p className="text-gray-600 text-center text-sm md:text-base">
          I'm a passionate developer who enjoys building modern and responsive web applications. 
   I have experience working with technologies like Java, Spring Boot, React, and Node.js. 
@@ -29,7 +29,7 @@ const About = () => {
         </p>
         <div className="flex justify-center mt-6 mx-auto"><button
       onClick={handleDownloadResume}
-      className="px-6 py-2 bg-cyan-500 text-black rounded-xl hover:text-xl hover: font-bold transform hover:scale-105 transition duration-300"
+      className="px-6 py-2.5 bg-gradient-to-r from-amber-500 to-orange-500 text-black rounded-full font-semibold hover:scale-105 transition-transform duration-300 shadow-lg shadow-amber-500/25 text-sm md:text-base"
     >
       Download Resume
     </button></div>

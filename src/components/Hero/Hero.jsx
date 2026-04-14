@@ -9,8 +9,8 @@ const Hero = () => {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.8, ease: 'easeOut' }}
       >
-        <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold mb-4">Hi, I'm <span className="text-blue-500">Tan Phat Nguyen</span></h1>
-        <p className="text-lg md:text-xl text-gray-600 mb-8">Back End Developer</p>
+        <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold mb-4">Hi, I'm <span className="bg-gradient-to-r from-amber-400 to-orange-500 bg-clip-text text-transparent">Tan Phat Nguyen</span></h1>
+        <p className="text-lg md:text-xl text-gray-400 mb-8">Back End Developer</p>
 <a href="#contact"><button
   className="cursor-pointer relative bg-white/10 py-2 rounded-full min-w-[8.5rem] min-h-[2.92rem] group max-w-full flex items-center justify-start hover:bg-green-400 transition-all duration-[0.8s] ease-[cubic-bezier(0.510,0.026,0.368,1.016)] shadow-[inset_1px_2px_5px_#00000080] mx-auto"
 >

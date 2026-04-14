@@ -69,7 +69,9 @@ const Navbar = () => {
         <li><a href="#" className="text-gray-400 hover:text-white">Toronto,Canada/{CurrentTime()}</a></li>
         <li><a href="#about" className="text-gray-400 font-bold hover:text-white">(ABOUT)</a></li>
         <li><a href="#skills" className="text-gray-400 font-bold hover:text-white">(SKILLS)</a></li>
+        <li><a href="#projects" className="text-gray-400 font-bold hover:text-white">(PROJECTS)</a></li>
         <li><a href="#contact" className="text-gray-400 font-bold hover:text-white">Contact</a></li>
+        <li><a href="#feedback" className="text-gray-400 font-bold hover:text-amber-400 transition">Góp Ý</a></li>
       </motion.ul>
 
       {/* Mobile menu */}
@@ -84,8 +86,10 @@ const Navbar = () => {
             <li><a href="#home" onClick={() => setMenuOpen(false)} className="text-gray-400 font-bold hover:text-white hover:bg-amber-300 border-2 border-gray-600 p-[10px] rounded-lg transition duration-300">Tan Phat Nguyen</a></li>
             <li><a href="#" className="text-gray-400 hover:text-white text-sm">{CurrentTime()}</a></li>
             <li><a href="#about" onClick={() => setMenuOpen(false)} className="text-gray-400 font-bold hover:text-white text-lg">(ABOUT)</a></li>
-            <li><a href="#services" onClick={() => setMenuOpen(false)} className="text-gray-400 font-bold hover:text-white text-lg">(SERVICES)</a></li>
+            <li><a href="#skills" onClick={() => setMenuOpen(false)} className="text-gray-400 font-bold hover:text-white text-lg">(SKILLS)</a></li>
+            <li><a href="#projects" onClick={() => setMenuOpen(false)} className="text-gray-400 font-bold hover:text-white text-lg">(PROJECTS)</a></li>
             <li><a href="#contact" onClick={() => setMenuOpen(false)} className="text-gray-400 font-bold hover:text-white text-lg">Contact</a></li>
+            <li><a href="#feedback" onClick={() => setMenuOpen(false)} className="text-gray-400 font-bold hover:text-amber-400 text-lg">Góp Ý</a></li>
           </ul>
         </motion.div>
       )}
