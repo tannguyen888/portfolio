@@ -1,0 +1,770 @@
+================================================================================
+  HƯỚNG DẪN CỰC CHI TIẾT: TÍCH HỢP AI CHATBOT VÀO DỰ ÁN PORTFOLIO
+================================================================================
+
+  Dự án hiện tại: React (Vite) + Express + Sequelize + MySQL
+  AI Provider:    OpenAI (GPT)
+  Kết quả:        Nút chat ở góc phải dưới → mở chatbot hỏi đáp về bạn
+
+================================================================================
+  CẤU TRÚC THƯ MỤC SAU KHI THÊM CHATBOT
+================================================================================
+
+  backend/
+  ├── config/
+  │   ├── config.js          (đã có)
+  │   ├── mailer.js          (đã có)
+  │   └── openai.js          ← MỚI: OpenAI client
+  ├── controller/
+  │   ├── mailerController.js (đã có)
+  │   └── chatbotController.js ← MỚI: xử lý chat request
+  ├── service/
+  │   ├── mailer_service.js   (đã có)
+  │   └── chatbot_service.js  ← MỚI: gọi OpenAI API
+  ├── routes/
+  │   ├── contact.js          (đã có)
+  │   └── chatbot.js          ← MỚI: route /api/chat
+  ├── server.js               ← SỬA: thêm route chatbot
+  └── .env                    ← SỬA: thêm OPENAI_API_KEY
+
+  src/components/
+  └── Chatbot/
+      ├── Chatbot.jsx          ← MỚI: giao diện chatbot
+      └── index.js             ← MỚI: barrel export
+
+  KIẾN TRÚC LUỒNG DỮ LIỆU:
+  User nhập message → React fetch POST /api/chat
+                    → Express route → Controller → Service
+                    → OpenAI API (gpt-4o-mini)
+                    → Response trả về → Hiển thị trên chat window
+
+
+================================================================================
+  PHẦN 1: BACKEND (5 file)
+================================================================================
+
+
+========================================
+  BƯỚC 1: LẤY OPENAI API KEY
+========================================
+
+  1. Vào https://platform.openai.com/signup
+     → Đăng ký tài khoản (dùng Google account được)
+
+  2. Vào https://platform.openai.com/api-keys
+     → Nhấn "Create new secret key"
+     → Đặt tên: "portfolio-chatbot"
+     → Copy key (bắt đầu bằng sk-...)
+     → LƯU LẠI NGAY vì chỉ hiện 1 lần
+
+  3. Nạp credit: https://platform.openai.com/account/billing
+     → Add payment method
+     → Nạp $5 là đủ dùng rất lâu
+     → gpt-4o-mini chỉ $0.00015/1000 tokens (cực rẻ)
+
+  QUAN TRỌNG: KHÔNG BAO GIỜ commit API key lên GitHub!
+
+
+========================================
+  BƯỚC 2: CÀI ĐẶT PACKAGE
+========================================
+
+  cd backend
+  npm install openai
+
+  Giải thích: Package openai là SDK chính thức của OpenAI cho Node.js
+
+
+========================================
+  BƯỚC 3: THÊM API KEY VÀO .env
+========================================
+
+  File: backend/.env
+  Thêm dòng cuối:
+
+  ┌─────────────────────────────────────────────────────────┐
+  │ # OpenAI                                                │
+  │ OPENAI_API_KEY=sk-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx      │
+  └─────────────────────────────────────────────────────────┘
+
+  Thay sk-xxx bằng key thật từ bước 1.
+
+  File .env đầy đủ sẽ như sau:
+
+    PORT=5000
+
+    # MySQL
+    DB_HOST=127.0.0.1
+    DB_USER=root
+    DB_PASSWORD=
+    DB_NAME=portfolio_database
+    DB_PORT=3306
+
+    # Email (Gmail SMTP)
+    MAIL_HOST=smtp.gmail.com
+    MAIL_PORT=587
+    MAIL_USER=tannguyenntp2003@gmail.com
+    MAIL_PASS=cpma eefs jxdc bnfc
+    MAIL_TO=tannguyenntp2003@gmail.com
+
+    # OpenAI
+    OPENAI_API_KEY=sk-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+
+
+========================================
+  BƯỚC 4: TẠO FILE config/openai.js
+========================================
+
+  Đường dẫn: backend/config/openai.js
+
+  ┌─────────────────────────────────────────────────────────┐
+  │ const OpenAI = require('openai');                       │
+  │                                                         │
+  │ const openai = new OpenAI({                             │
+  │   apiKey: process.env.OPENAI_API_KEY,                   │
+  │ });                                                     │
+  │                                                         │
+  │ module.exports = openai;                                │
+  └─────────────────────────────────────────────────────────┘
+
+  GIẢI THÍCH TỪNG DÒNG:
+
+  const OpenAI = require('openai');
+  → Import class OpenAI từ package openai
+
+  const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+  → Tạo client instance
+  → apiKey đọc từ .env (process.env.OPENAI_API_KEY)
+  → Client này dùng để gọi tất cả API của OpenAI
+
+  module.exports = openai;
+  → Export để service dùng
+
+
+========================================
+  BƯỚC 5: TẠO FILE service/chatbot_service.js
+========================================
+
+  Đường dẫn: backend/service/chatbot_service.js
+
+  ┌─────────────────────────────────────────────────────────┐
+  │ const openai = require('../config/openai');              │
+  │                                                         │
+  │ // System prompt: "Dạy" AI về bạn                       │
+  │ const SYSTEM_PROMPT = `                                 │
+  │ You are a friendly assistant on Tan Phat Nguyen's       │
+  │ portfolio website. Here is information about him:       │
+  │                                                         │
+  │ PERSONAL INFO:                                          │
+  │ - Name: Tan Phat Nguyen (goes by Phat)                  │
+  │ - Role: Back End Developer                              │
+  │ - Location: Toronto, Canada                             │
+  │ - Email: tannguyenntp2003@gmail.com                     │
+  │                                                         │
+  │ SKILLS:                                                 │
+  │ - Languages: Java, Python, JavaScript, SQL              │
+  │ - Backend: Spring Boot, Node.js, Express                │
+  │ - Frontend: React, Tailwind CSS                         │
+  │ - Database: MySQL, PostgreSQL, MongoDB                  │
+  │ - Tools: Git, Docker                                    │
+  │                                                         │
+  │ RULES:                                                  │
+  │ - Answer questions about Phat's skills and experience   │
+  │ - Be friendly, professional, and concise                │
+  │ - Keep answers to 2-3 sentences                         │
+  │ - If asked something unrelated, politely redirect       │
+  │ - Answer in the same language the user writes in        │
+  │ - Do NOT make up information not listed above           │
+  │ - If you don't know, say "I don't have that info,      │
+  │   please contact Phat directly"                         │
+  │ `;                                                      │
+  │                                                         │
+  │ async function chat(userMessage, history = []) {        │
+  │   // Xây dựng mảng messages cho OpenAI                  │
+  │   const messages = [                                    │
+  │     { role: 'system', content: SYSTEM_PROMPT },         │
+  │     ...history.slice(-10),  // Chỉ giữ 10 tin gần nhất │
+  │     { role: 'user', content: userMessage },             │
+  │   ];                                                    │
+  │                                                         │
+  │   const response = await openai.chat.completions.create({│
+  │     model: 'gpt-4o-mini',                               │
+  │     messages: messages,                                  │
+  │     max_tokens: 300,                                     │
+  │     temperature: 0.7,                                    │
+  │   });                                                    │
+  │                                                         │
+  │   return response.choices[0].message.content;            │
+  │ }                                                       │
+  │                                                         │
+  │ module.exports = { chat };                              │
+  └─────────────────────────────────────────────────────────┘
+
+  GIẢI THÍCH TỪNG PHẦN:
+
+  ── SYSTEM_PROMPT ──
+  → Đây là "bộ não" của chatbot
+  → Cung cấp thông tin về bạn cho AI
+  → AI sẽ trả lời dựa trên thông tin này
+  → Bạn có thể thêm: projects, education, experience, hobbies
+  → Càng chi tiết → AI càng trả lời chính xác
+  → RULES giúp AI không bịa thông tin
+
+  ── function chat(userMessage, history) ──
+
+  Tham số:
+    userMessage  = tin nhắn user vừa gửi (string)
+    history      = lịch sử chat trước đó (array of {role, content})
+
+  const messages = [
+    { role: 'system', content: SYSTEM_PROMPT },
+    ...history.slice(-10),
+    { role: 'user', content: userMessage },
+  ];
+
+  → Cấu trúc messages cho OpenAI API:
+    - system: Hướng dẫn AI cách hành xử (SYSTEM_PROMPT)
+    - history: Các tin nhắn trước (để AI nhớ ngữ cảnh)
+    - user: Tin nhắn mới nhất
+  → history.slice(-10): Chỉ giữ 10 tin gần nhất
+    (tiết kiệm tokens = tiết kiệm tiền)
+
+  openai.chat.completions.create({...})
+  → Gọi API tạo chat completion
+
+  Các tham số:
+    model: 'gpt-4o-mini'
+    → Model AI để dùng
+    → gpt-4o-mini: rẻ nhất ($0.00015/1K tokens), nhanh, đủ tốt
+    → Các lựa chọn khác:
+      gpt-3.5-turbo: $0.002/1K tokens, nhanh
+      gpt-4o:        $0.005/1K tokens, thông minh hơn
+      gpt-4:         $0.03/1K tokens, chậm nhất
+
+    max_tokens: 300
+    → Giới hạn độ dài response (~200 từ)
+    → Càng cao → response dài hơn + tốn tiền hơn
+
+    temperature: 0.7
+    → Độ "sáng tạo" của AI (0.0 → 2.0)
+    → 0.0 = cực kỳ chính xác, lặp lại câu trả lời
+    → 0.7 = cân bằng giữa chính xác và tự nhiên
+    → 1.0 = rất sáng tạo, có thể bịa
+    → Khuyên dùng: 0.5-0.7 cho chatbot portfolio
+
+  response.choices[0].message.content
+  → Lấy nội dung text từ response
+  → choices[0] = câu trả lời đầu tiên (thường chỉ có 1)
+  → .message.content = text string
+
+
+========================================
+  BƯỚC 6: TẠO FILE controller/chatbotController.js
+========================================
+
+  Đường dẫn: backend/controller/chatbotController.js
+
+  ┌─────────────────────────────────────────────────────────┐
+  │ const { chat } = require('../service/chatbot_service'); │
+  │                                                         │
+  │ const handleChat = async (req, res) => {                │
+  │   const { message, history } = req.body;                │
+  │                                                         │
+  │   // Validate: phải có message                          │
+  │   if (!message || typeof message !== 'string') {        │
+  │     return res.status(400).json({                       │
+  │       error: 'Message is required'                      │
+  │     });                                                 │
+  │   }                                                     │
+  │                                                         │
+  │   // Validate: message không quá dài (chống spam)       │
+  │   if (message.length > 500) {                           │
+  │     return res.status(400).json({                       │
+  │       error: 'Message too long (max 500 characters)'    │
+  │     });                                                 │
+  │   }                                                     │
+  │                                                         │
+  │   try {                                                 │
+  │     const reply = await chat(message, history || []);   │
+  │     res.json({ reply });                                │
+  │   } catch (err) {                                       │
+  │     console.error('OpenAI Error:', err.message);        │
+  │     res.status(500).json({                              │
+  │       error: 'AI is not available right now'            │
+  │     });                                                 │
+  │   }                                                     │
+  │ };                                                      │
+  │                                                         │
+  │ module.exports = { handleChat };                        │
+  └─────────────────────────────────────────────────────────┘
+
+  GIẢI THÍCH TỪNG PHẦN:
+
+  const { message, history } = req.body;
+  → Lấy 2 field từ body:
+    message = tin nhắn user (string)
+    history = lịch sử chat (array, optional)
+
+  Validation 1: if (!message || typeof message !== 'string')
+  → Kiểm tra message có tồn tại và đúng kiểu string
+  → Trả 400 nếu thiếu
+
+  Validation 2: if (message.length > 500)
+  → Giới hạn 500 ký tự
+  → Chống spam + tiết kiệm tokens
+  → Bạn có thể chỉnh số này tùy ý
+
+  const reply = await chat(message, history || []);
+  → Gọi service, truyền history hoặc array rỗng nếu không có
+  → await vì gọi API bên ngoài (async)
+
+  res.json({ reply });
+  → Trả response: { "reply": "AI's answer here..." }
+
+  catch: res.status(500).json({ error: '...' })
+  → Nếu OpenAI API lỗi (hết credit, rate limit, server down)
+  → Trả message thân thiện cho user
+  → Log lỗi thật ra console để debug
+
+
+========================================
+  BƯỚC 7: TẠO FILE routes/chatbot.js
+========================================
+
+  Đường dẫn: backend/routes/chatbot.js
+
+  ┌─────────────────────────────────────────────────────────┐
+  │ const express = require('express');                     │
+  │ const router = express.Router();                        │
+  │ const { handleChat } = require(                        │
+  │   '../controller/chatbotController'                     │
+  │ );                                                      │
+  │                                                         │
+  │ // POST /api/chat - Gửi message, nhận AI reply         │
+  │ router.post('/', handleChat);                           │
+  │                                                         │
+  │ module.exports = router;                                │
+  └─────────────────────────────────────────────────────────┘
+
+  GIẢI THÍCH:
+  → Tạo Express router
+  → POST / sẽ thành POST /api/chat (vì mount ở server.js)
+  → Chỉ cần 1 route: POST để gửi message
+
+
+========================================
+  BƯỚC 8: SỬA FILE server.js
+========================================
+
+  File: backend/server.js
+  Thêm 1 dòng vào phần Routes:
+
+  ┌─────────────────────────────────────────────────────────┐
+  │ // Routes                                               │
+  │ app.use('/api/contact', require('./routes/contact'));    │
+  │ app.use('/api/chat', require('./routes/chatbot'));  ← THÊM│
+  └─────────────────────────────────────────────────────────┘
+
+  Giải thích:
+  → Mount chatbot router tại /api/chat
+  → Khi frontend POST /api/chat → Express gọi chatbot route
+    → route gọi controller → controller gọi service → service gọi OpenAI
+
+
+================================================================================
+  PHẦN 2: FRONTEND (2 file)
+================================================================================
+
+
+========================================
+  BƯỚC 9: TẠO FILE components/Chatbot/Chatbot.jsx
+========================================
+
+  Đường dẫn: src/components/Chatbot/Chatbot.jsx
+
+  ┌─────────────────────────────────────────────────────────┐
+  │ import { useState, useRef, useEffect } from 'react'     │
+  │                                                         │
+  │ const Chatbot = () => {                                 │
+  │   const [isOpen, setIsOpen] = useState(false)           │
+  │   const [messages, setMessages] = useState([])          │
+  │   const [input, setInput] = useState('')                │
+  │   const [isLoading, setIsLoading] = useState(false)     │
+  │   const messagesEndRef = useRef(null)                   │
+  │                                                         │
+  │   // Auto-scroll xuống cuối khi có tin nhắn mới        │
+  │   useEffect(() => {                                     │
+  │     messagesEndRef.current?.scrollIntoView({            │
+  │       behavior: 'smooth'                                │
+  │     })                                                  │
+  │   }, [messages])                                        │
+  │                                                         │
+  │   const sendMessage = async () => {                     │
+  │     if (!input.trim() || isLoading) return              │
+  │                                                         │
+  │     const userMsg = { role: 'user', content: input }    │
+  │     const newMessages = [...messages, userMsg]          │
+  │     setMessages(newMessages)                            │
+  │     setInput('')                                        │
+  │     setIsLoading(true)                                  │
+  │                                                         │
+  │     try {                                               │
+  │       const res = await fetch(                          │
+  │         'http://localhost:5000/api/chat',               │
+  │         {                                               │
+  │           method: 'POST',                               │
+  │           headers: {                                    │
+  │             'Content-Type': 'application/json'          │
+  │           },                                            │
+  │           body: JSON.stringify({                        │
+  │             message: input,                             │
+  │             history: messages,                          │
+  │           }),                                           │
+  │         }                                               │
+  │       )                                                 │
+  │                                                         │
+  │       const data = await res.json()                     │
+  │                                                         │
+  │       if (data.reply) {                                 │
+  │         setMessages(prev => [...prev, {                 │
+  │           role: 'assistant',                            │
+  │           content: data.reply                           │
+  │         }])                                             │
+  │       } else {                                          │
+  │         setMessages(prev => [...prev, {                 │
+  │           role: 'assistant',                            │
+  │           content: data.error ||                        │
+  │             'Sorry, something went wrong.'              │
+  │         }])                                             │
+  │       }                                                 │
+  │     } catch {                                           │
+  │       setMessages(prev => [...prev, {                   │
+  │         role: 'assistant',                              │
+  │         content: 'Cannot connect to server.'            │
+  │       }])                                               │
+  │     }                                                   │
+  │                                                         │
+  │     setIsLoading(false)                                 │
+  │   }                                                     │
+  │                                                         │
+  │   const handleKeyDown = (e) => {                        │
+  │     if (e.key === 'Enter' && !e.shiftKey) {             │
+  │       e.preventDefault()                                │
+  │       sendMessage()                                     │
+  │     }                                                   │
+  │   }                                                     │
+  │                                                         │
+  │   return (                                              │
+  │     <div className="fixed bottom-6 right-6 z-50">      │
+  │                                                         │
+  │       {/* ── NÚT MỞ/ĐÓNG CHAT ── */}                  │
+  │       <button                                           │
+  │         onClick={() => setIsOpen(!isOpen)}              │
+  │         className="w-14 h-14 bg-blue-500               │
+  │           text-white rounded-full shadow-lg             │
+  │           hover:bg-blue-600 transition                  │
+  │           flex items-center justify-center              │
+  │           text-2xl"                                     │
+  │       >                                                 │
+  │         {isOpen ? '✕' : '💬'}                           │
+  │       </button>                                         │
+  │                                                         │
+  │       {/* ── CỬA SỔ CHAT ── */}                        │
+  │       {isOpen && (                                      │
+  │         <div className="absolute bottom-16 right-0     │
+  │           w-80 sm:w-96 bg-white rounded-xl             │
+  │           shadow-2xl border flex flex-col               │
+  │           max-h-[500px]"                                │
+  │         >                                               │
+  │                                                         │
+  │           {/* Header */}                                │
+  │           <div className="bg-blue-500 text-white       │
+  │             px-4 py-3 rounded-t-xl font-semibold"      │
+  │           >                                             │
+  │             💬 Chat with AI                             │
+  │           </div>                                        │
+  │                                                         │
+  │           {/* Messages area */}                         │
+  │           <div className="flex-1 overflow-y-auto p-4   │
+  │             space-y-3 max-h-80"                         │
+  │           >                                             │
+  │             {messages.length === 0 && (                 │
+  │               <p className="text-gray-400 text-sm      │
+  │                 text-center"                            │
+  │               >                                         │
+  │                 Ask me anything about Phat!             │
+  │               </p>                                      │
+  │             )}                                          │
+  │                                                         │
+  │             {messages.map((msg, i) => (                 │
+  │               <div key={i} className={`flex            │
+  │                 ${msg.role === 'user'                   │
+  │                   ? 'justify-end'                       │
+  │                   : 'justify-start'}`}                  │
+  │               >                                         │
+  │                 <div className={`max-w-[75%] px-3      │
+  │                   py-2 rounded-lg text-sm              │
+  │                   ${msg.role === 'user'                 │
+  │                     ? 'bg-blue-500 text-white'         │
+  │                     : 'bg-gray-100 text-gray-800'}`}   │
+  │                 >                                       │
+  │                   {msg.content}                         │
+  │                 </div>                                   │
+  │               </div>                                    │
+  │             ))}                                         │
+  │                                                         │
+  │             {isLoading && (                             │
+  │               <div className="flex justify-start">     │
+  │                 <div className="bg-gray-100 px-3       │
+  │                   py-2 rounded-lg text-sm              │
+  │                   text-gray-500"                        │
+  │                 >                                       │
+  │                   Thinking...                           │
+  │                 </div>                                   │
+  │               </div>                                    │
+  │             )}                                          │
+  │                                                         │
+  │             <div ref={messagesEndRef} />                │
+  │           </div>                                        │
+  │                                                         │
+  │           {/* Input area */}                            │
+  │           <div className="border-t p-3 flex gap-2">    │
+  │             <input                                      │
+  │               type="text"                               │
+  │               value={input}                             │
+  │               onChange={(e) => setInput(e.target.value)}│
+  │               onKeyDown={handleKeyDown}                 │
+  │               placeholder="Type a message..."          │
+  │               className="flex-1 border rounded-lg      │
+  │                 px-3 py-2 text-sm text-black            │
+  │                 focus:outline-none                      │
+  │                 focus:ring-2 focus:ring-blue-500"       │
+  │             />                                          │
+  │             <button                                     │
+  │               onClick={sendMessage}                     │
+  │               disabled={isLoading || !input.trim()}    │
+  │               className="bg-blue-500 text-white        │
+  │                 px-4 py-2 rounded-lg text-sm           │
+  │                 hover:bg-blue-600 transition            │
+  │                 disabled:opacity-50"                    │
+  │             >                                           │
+  │               Send                                     │
+  │             </button>                                   │
+  │           </div>                                        │
+  │                                                         │
+  │         </div>                                          │
+  │       )}                                                │
+  │     </div>                                              │
+  │   )                                                     │
+  │ }                                                       │
+  │                                                         │
+  │ export default Chatbot                                  │
+  └─────────────────────────────────────────────────────────┘
+
+  GIẢI THÍCH TỪNG PHẦN CHI TIẾT:
+
+  ── STATE ──
+
+  const [isOpen, setIsOpen] = useState(false)
+  → Cửa sổ chat mở hay đóng (true/false)
+  → Mặc định: đóng
+
+  const [messages, setMessages] = useState([])
+  → Mảng chứa tất cả tin nhắn
+  → Mỗi tin nhắn: { role: 'user' hoặc 'assistant', content: 'text' }
+  → Cũng dùng làm history gửi cho OpenAI
+
+  const [input, setInput] = useState('')
+  → Nội dung ô input hiện tại
+
+  const [isLoading, setIsLoading] = useState(false)
+  → Đang chờ AI trả lời hay không
+  → true: hiện "Thinking...", disable nút Send
+
+  const messagesEndRef = useRef(null)
+  → Ref trỏ tới div cuối cùng trong danh sách messages
+  → Dùng để auto-scroll xuống
+
+  ── useEffect AUTO-SCROLL ──
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [messages])
+
+  → Mỗi khi messages thay đổi (có tin mới)
+  → Scroll mượt xuống cuối cùng
+  → ?. (optional chaining) để tránh lỗi khi ref chưa mount
+
+  ── sendMessage() ──
+
+  if (!input.trim() || isLoading) return
+  → Không gửi nếu input rỗng hoặc đang loading
+
+  const userMsg = { role: 'user', content: input }
+  → Tạo object tin nhắn user
+
+  setMessages(newMessages)
+  → Thêm tin nhắn user vào UI ngay lập tức (UX tốt)
+
+  setInput('')
+  → Xóa ô input
+
+  fetch('http://localhost:5000/api/chat', { body: { message, history } })
+  → Gọi backend API
+  → Gửi tin nhắn hiện tại + lịch sử chat
+  → Backend forward tới OpenAI → nhận reply
+
+  if (data.reply) → setMessages thêm tin nhắn AI
+  → Hiển thị câu trả lời AI
+
+  catch → hiện "Cannot connect to server."
+  → Khi backend không chạy hoặc lỗi mạng
+
+  ── handleKeyDown() ──
+
+  if (e.key === 'Enter' && !e.shiftKey)
+  → Nhấn Enter để gửi
+  → Shift+Enter để xuống dòng (không gửi)
+
+  ── UI LAYOUT ──
+
+  fixed bottom-6 right-6 z-50
+  → Nút chat cố định ở góc phải dưới
+  → z-50 để luôn hiện trên các element khác
+
+  Nút: w-14 h-14 rounded-full
+  → Hình tròn, 56px, màu xanh
+  → Hiện 💬 khi đóng, ✕ khi mở
+
+  Cửa sổ: absolute bottom-16 right-0 w-80
+  → Mở phía trên nút chat
+  → 320px rộng (sm:w-96 = 384px trên màn lớn)
+  → max-h-[500px] giới hạn chiều cao
+
+  Messages: user (bg-blue-500, phải) / bot (bg-gray-100, trái)
+  → Giống giao diện iMessage
+
+  "Thinking..." hiện khi isLoading = true
+
+
+========================================
+  BƯỚC 10: TẠO FILE components/Chatbot/index.js
+========================================
+
+  Đường dẫn: src/components/Chatbot/index.js
+
+  ┌─────────────────────────────────────────────────────────┐
+  │ export { default as Chatbot } from './Chatbot'          │
+  └─────────────────────────────────────────────────────────┘
+
+
+========================================
+  BƯỚC 11: SỬA FILE src/components/index.js
+========================================
+
+  Thêm export Chatbot vào barrel file:
+
+  ┌─────────────────────────────────────────────────────────┐
+  │ export { Chatbot } from './Chatbot'                     │
+  └─────────────────────────────────────────────────────────┘
+
+
+========================================
+  BƯỚC 12: SỬA FILE App.jsx
+========================================
+
+  Trong App.jsx, thêm import và component:
+
+  Import:
+  ┌─────────────────────────────────────────────────────────┐
+  │ import { ..., Chatbot } from './components'             │
+  └─────────────────────────────────────────────────────────┘
+
+  Trong return, đặt <Chatbot /> ở cuối (trước closing div):
+  ┌─────────────────────────────────────────────────────────┐
+  │ <Footer />                                              │
+  │ <Chatbot />     ← THÊM DÒNG NÀY                        │
+  └─────────────────────────────────────────────────────────┘
+
+
+================================================================================
+  PHẦN 3: TEST
+================================================================================
+
+  1. Chạy backend:
+     node backend/server.js
+     → Phải thấy: "Server running on port 5000"
+
+  2. Chạy frontend:
+     npm run dev
+     → Mở http://localhost:5173
+
+  3. Click nút 💬 ở góc phải dưới
+     → Cửa sổ chat mở ra
+
+  4. Thử hỏi:
+     - "What skills does Phat have?"
+     - "Tell me about Phat's experience"
+     - "Phat biết những ngôn ngữ nào?"
+     → AI sẽ trả lời dựa trên SYSTEM_PROMPT
+
+  5. Thử lỗi:
+     - Tắt backend → gửi tin → hiện "Cannot connect to server."
+     - Gửi tin rỗng → nút Send disabled
+
+
+================================================================================
+  PHẦN 4: TỐI ƯU (OPTIONAL)
+================================================================================
+
+  ── RATE LIMITING (chống spam, tiết kiệm tiền) ──
+
+  npm install express-rate-limit
+
+  Trong server.js:
+    const rateLimit = require('express-rate-limit');
+    const chatLimiter = rateLimit({
+      windowMs: 15 * 60 * 1000,    // 15 phút
+      max: 20,                      // tối đa 20 requests/15 phút
+      message: { error: 'Too many requests, try again later' }
+    });
+    app.use('/api/chat', chatLimiter, require('./routes/chatbot'));
+
+  ── DAILY BUDGET (giới hạn chi tiêu) ──
+
+  Vào https://platform.openai.com/account/billing
+  → Set monthly budget limit (vd: $5)
+  → Khi hết credit, API trả lỗi 429
+
+  ── TÙY CHỈNH SYSTEM_PROMPT ──
+
+  Thêm càng nhiều thông tin càng tốt:
+  - Projects bạn đã làm
+  - Education
+  - Work experience
+  - Certifications
+  - Sở thích, fun facts
+  → AI sẽ trả lời phong phú hơn
+
+
+================================================================================
+  TỔNG KẾT CÁC FILE CẦN TẠO/SỬA
+================================================================================
+
+  TẠO MỚI (5 file):
+  ├── backend/config/openai.js
+  ├── backend/service/chatbot_service.js
+  ├── backend/controller/chatbotController.js
+  ├── backend/routes/chatbot.js
+  └── src/components/Chatbot/Chatbot.jsx
+      src/components/Chatbot/index.js
+
+  SỬA (3 file):
+  ├── backend/.env                    → thêm OPENAI_API_KEY
+  ├── backend/server.js               → thêm route /api/chat
+  ├── src/components/index.js          → thêm export Chatbot
+  └── src/App.jsx                      → thêm <Chatbot />
+
+  INSTALL (1 package):
+  └── npm install openai
+
