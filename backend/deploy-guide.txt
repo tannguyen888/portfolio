@@ -1,0 +1,166 @@
+================================================================================
+  HƯỚNG DẪN DEPLOY PORTFOLIO - NHANH NHẤT
+================================================================================
+
+  Frontend (React)  → Vercel      (FREE)
+  Backend (Express) → Render      (FREE)
+  Database (MySQL)  → Aiven/Railway (FREE tier)
+
+  Kết quả:
+  - Frontend: https://your-name.vercel.app
+  - Backend:  https://your-app.onrender.com
+
+
+================================================================================
+  BƯỚC 1: DATABASE - Aiven MySQL (FREE)
+================================================================================
+
+  1. Vào https://aiven.io → Sign up (dùng GitHub)
+  2. Create Service → MySQL → Free plan
+  3. Chờ tạo xong → lấy thông tin:
+     - Host:     mysql-xxx.aiven.io
+     - Port:     12345
+     - User:     avnadmin
+     - Password: xxxxx
+     - Database: defaultdb
+
+  4. Kết nối và tạo table:
+     - Dùng MySQL Workbench hoặc terminal:
+       mysql -h mysql-xxx.aiven.io -P 12345 -u avnadmin -p --ssl-mode=REQUIRED
+
+     - Chạy migration (từ folder backend):
+       npx sequelize-cli db:migrate
+
+     (Hoặc tạo table bằng tay từ file migrations/)
+
+
+================================================================================
+  BƯỚC 2: BACKEND - Render (FREE)
+================================================================================
+
+  1. Vào https://render.com → Sign up (dùng GitHub)
+
+  2. Dashboard → New → Web Service
+
+  3. Connect GitHub repo: tannguyen888/portfolio
+
+  4. Cấu hình:
+     - Name:            portfolio-backend
+     - Root Directory:  backend
+     - Runtime:         Node
+     - Build Command:   npm install
+     - Start Command:   node server.js
+     - Instance Type:   Free
+
+  5. Thêm Environment Variables (Settings → Environment):
+
+     PORT=5000
+
+     DB_HOST=mysql-xxx.aiven.io       ← từ Aiven
+     DB_USER=avnadmin                  ← từ Aiven
+     DB_PASSWORD=xxxxx                 ← từ Aiven
+     DB_NAME=defaultdb                 ← từ Aiven
+     DB_PORT=12345                     ← từ Aiven
+
+     MAIL_HOST=smtp.gmail.com
+     MAIL_PORT=587
+     MAIL_USER=tannguyenntp2003@gmail.com
+     MAIL_PASS=cpma eefs jxdc bnfc
+     MAIL_TO=tannguyenntp2003@gmail.com
+
+     OPENAI_API_KEY=sk-proj-xxx       ← key OpenAI của bạn
+
+     CORS_ORIGIN=https://your-name.vercel.app   ← URL Vercel (thêm sau)
+
+  6. Click "Create Web Service" → chờ deploy
+
+  7. Sau khi xong, bạn sẽ có URL:
+     https://portfolio-backend-xxx.onrender.com
+
+  8. Test: mở trình duyệt → truy cập URL/api/health
+     → Phải thấy { "status": "ok" }
+
+  LƯU Ý: Free tier Render sẽ sleep sau 15 phút không hoạt động.
+          Request đầu tiên sau khi sleep sẽ mất ~30 giây.
+
+
+================================================================================
+  BƯỚC 3: FRONTEND - Vercel (FREE)
+================================================================================
+
+  1. Vào https://vercel.com → Sign up (dùng GitHub)
+
+  2. New Project → Import repo: tannguyen888/portfolio
+
+  3. Cấu hình:
+     - Framework Preset:  Vite
+     - Root Directory:    ./ (để trống hoặc /)
+     - Build Command:     npm run build
+     - Output Directory:  dist
+
+  4. Thêm Environment Variable:
+     VITE_API_URL = https://portfolio-backend-xxx.onrender.com
+                    ↑ URL Render từ bước 2
+
+  5. Click "Deploy" → chờ build
+
+  6. Sau khi xong, bạn sẽ có URL:
+     https://portfolio-xxx.vercel.app
+
+  7. Quay lại Render → Settings → Environment
+     → Cập nhật CORS_ORIGIN = https://portfolio-xxx.vercel.app
+
+
+================================================================================
+  BƯỚC 4: CẬP NHẬT CORS (SAU KHI CÓ URL VERCEL)
+================================================================================
+
+  Quay lại Render Dashboard:
+  → Environment Variables
+  → Sửa CORS_ORIGIN = https://portfolio-xxx.vercel.app
+  → Save → Render sẽ auto redeploy
+
+
+================================================================================
+  ALTERNATIVE: RAILWAY (Backend + DB cùng 1 chỗ)
+================================================================================
+
+  Nếu muốn đơn giản hơn, dùng Railway cho cả Backend + MySQL:
+
+  1. Vào https://railway.app → Sign up (GitHub)
+  2. New Project → "Deploy from GitHub repo"
+  3. Chọn repo → Set Root Directory = backend
+  4. Railway auto detect Node.js → deploy
+
+  5. Thêm MySQL:
+     → New → Database → MySQL
+     → Railway tự tạo DB + cho connection string
+     → Copy các biến: MYSQLHOST, MYSQLUSER, MYSQLPASSWORD,...
+
+  6. Thêm Environment Variables (giống Render ở trên)
+
+  7. Railway cho $5 free credit/tháng → đủ cho portfolio
+
+
+================================================================================
+  TỔNG KẾT CÁC THAY ĐỔI ĐÃ LÀM TRONG CODE
+================================================================================
+
+  1. Frontend: Thay localhost:5000 → import.meta.env.VITE_API_URL
+     - src/components/AiChat/aiChat.jsx
+     - src/components/Contact/Contact.jsx
+
+  2. Backend: Thêm CORS_ORIGIN env variable
+     - backend/server.js: cors({ origin: process.env.CORS_ORIGIN })
+
+  ENV VARIABLES CẦN SET:
+  ┌─────────────────────────────────────────────────────────┐
+  │ Vercel (Frontend):                                      │
+  │   VITE_API_URL = https://your-backend.onrender.com      │
+  │                                                         │
+  │ Render (Backend):                                       │
+  │   PORT, DB_HOST, DB_USER, DB_PASSWORD, DB_NAME, DB_PORT │
+  │   MAIL_HOST, MAIL_PORT, MAIL_USER, MAIL_PASS, MAIL_TO  │
+  │   OPENAI_API_KEY                                        │
+  │   CORS_ORIGIN = https://your-app.vercel.app             │
+  └─────────────────────────────────────────────────────────┘
