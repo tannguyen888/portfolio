@@ -6,6 +6,65 @@ html, body {
   overflow-x: hidden;
   background: #090a0f;
   scroll-behavior: smooth;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-size: 16px;
+  line-height: 1.6;
+  letter-spacing: 0.01em;
+  color: #e2e8f0;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: 'Space Grotesk', 'Inter', sans-serif;
+  letter-spacing: 0.02em;
+  line-height: 1.2;
+}
+
+/* Section heading styles */
+.section-heading {
+  position: relative;
+  display: block;
+  width: fit-content;
+  margin-left: auto;
+  margin-right: auto;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  background: linear-gradient(135deg, #fbbf24, #f59e0b, #ea580c, #f59e0b, #fbbf24);
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: shimmer 4s ease-in-out infinite;
+}
+
+.section-heading::before,
+.section-heading::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  width: 40px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, #f59e0b, transparent);
+}
+
+.section-heading::before {
+  right: calc(100% + 12px);
+}
+
+.section-heading::after {
+  left: calc(100% + 12px);
+}
+
+.section-heading-glow {
+  text-shadow: 0 0 20px rgba(245, 158, 11, 0.3), 0 0 40px rgba(245, 158, 11, 0.15);
+  -webkit-text-fill-color: transparent;
+}
+
+@keyframes shimmer {
+  0%, 100% { background-position: 0% center; }
+  50% { background-position: 200% center; }
 }
 
 /* Hide scrollbar but keep scroll */

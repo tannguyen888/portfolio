@@ -1,12 +1,179 @@
+import { useState, useEffect, useRef, useCallback } from 'react';
 import styled from 'styled-components';
+import earthImg from '../../assets/images/earth.jpg';
+import ship from '../../assets/images/ship-removebg-preview.png';
+import planetEarth from '../../assets/images/planet-earth.jpg';
+import planetMars from '../../assets/images/planet-mars.jpg';
+import planetJupiter from '../../assets/images/planet-jupiter.jpg';
+import planetSaturn from '../../assets/images/planet-saturn.jpg';
+import planetNeptune from '../../assets/images/planet-neptune.jpg';
+import planetVenus from '../../assets/images/planet-venus.jpg';
+
+const SECTIONS = ['home', 'about', 'projects', 'skills', 'contact', 'feedback'];
+const TOTAL_LINES = 30;
+
+const PLANET_NAMES = ['Earth', 'Mars', 'Jupiter', 'Saturn', 'Neptune', 'Venus'];
+
+const PLANETS = [{
+img: planetEarth,
+size: '250px',
+bottom: '-80px',
+left: '-50px',
+shadow: '0 0 10px 20px rgba(50, 149, 237, 0.3)',
+glowColor: '100, 149, 237',
+},
+  
+  { // about - Mars
+    img: planetMars,
+    size: '280px',
+    bottom: '-50px',
+    left: '10%',
+    shadow: '0 0 60px 15px rgba(212, 101, 59, 0.3)',
+    glowColor: '212, 101, 59',
+  },
+  { // projects - Jupiter
+    img: planetJupiter,
+    size: '420px',
+    bottom: '-120px',
+    left: '-80px',
+    shadow: '0 0 100px 25px rgba(217, 160, 102, 0.25)',
+    glowColor: '217, 160, 102',
+  },
+  { // skills - Saturn
+    img: planetSaturn,
+    size: '300px',
+    bottom: '-60px',
+    left: '5%',
+    shadow: '0 0 70px 18px rgba(232, 201, 109, 0.25)',
+    glowColor: '232, 201, 109',
+    ring: true,
+  },
+  { // contact - Neptune
+    img: planetNeptune,
+    size: '260px',
+    bottom: '-40px',
+    left: '15%',
+    shadow: '0 0 60px 15px rgba(91, 126, 201, 0.3)',
+    glowColor: '91, 126, 201',
+  },
+  { // feedback - Venus
+    img: planetVenus,
+    size: '240px',
+    bottom: '-30px',
+    left: '8%',
+    shadow: '0 0 50px 12px rgba(232, 219, 181, 0.25)',
+    glowColor: '232, 219, 181',
+  },
+];
 
 const StarryBackground = () => {
+  const [scaleX, setScaleX] = useState(
+    typeof window !== 'undefined' ? Math.max(1, window.innerWidth / 1920) : 1
+  );
+  const [activeIndex, setActiveIndex] = useState(0);
+  const [glowing, setGlowing] = useState(false);
+  const prevSection = useRef(0);
+
+  useEffect(() => {
+    const handleResize = () => setScaleX(Math.max(1, window.innerWidth / 1920));
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  const handleSectionChange = useCallback((sectionIdx) => {
+    if (sectionIdx !== prevSection.current) {
+      prevSection.current = sectionIdx;
+      setActiveIndex(sectionIdx);
+      setGlowing(true);
+      setTimeout(() => setGlowing(false), 1200);
+    }
+  }, []);
+
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            const id = entry.target.id;
+            const idx = SECTIONS.indexOf(id);
+            if (idx !== -1) handleSectionChange(idx);
+          }
+        });
+      },
+      { threshold: 0.3 }
+    );
+
+    const timer = setTimeout(() => {
+      SECTIONS.forEach((id) => {
+        const el = document.getElementById(id);
+        if (el) observer.observe(el);
+      });
+    }, 500);
+
+    return () => {
+      clearTimeout(timer);
+      observer.disconnect();
+    };
+  }, [handleSectionChange]);
+
+  const linesPerSection = Math.floor(TOTAL_LINES / SECTIONS.length);
+  const activeStart = activeIndex * linesPerSection;
+  const activeEnd = activeStart + linesPerSection;
+
   return (
-    <StyledWrapper>
+    <StyledWrapper $scaleX={scaleX}>
       <div className="container">
+        <img src={earthImg} alt="Earth" className="earth-img" />
+        {/* Planets */}
+        {PLANETS.map((planet, i) => (
+          <div
+            key={i}
+            className={`planet${activeIndex === i ? ' planet-visible' : ''}`}
+            style={{
+              width: planet.size,
+              height: planet.size,
+              bottom: planet.bottom,
+              left: planet.left,
+              boxShadow: planet.shadow,
+            }}
+          >
+            <img src={planet.img} alt="" className="planet-texture" />
+            <div className="planet-shading" />
+            <div
+              className="planet-atmosphere"
+              style={{ boxShadow: `inset 0 0 40px rgba(${planet.glowColor}, 0.2), 0 0 60px rgba(${planet.glowColor}, 0.15)` }}
+            />
+            {planet.ring && (
+              <div className="planet-ring" />
+            )}
+          </div>
+        ))}
+        <img src={ship} alt="Ship" className="ship-img" />
+        <div className="planet-name-badge" key={activeIndex}>
+          <span className="planet-name-icon">◆</span>
+          <span className="planet-name-text">{PLANET_NAMES[activeIndex]}</span>
+        </div>
+        <div className="speed-lines" />
+        <div className="speed-lines2" />
+        <div className="station-bar">
+          {Array.from({ length: TOTAL_LINES }).map((_, i) => {
+            const isActive = i >= activeStart && i < activeEnd;
+            const isGlowing = glowing && isActive;
+            return (
+              <div
+                key={i}
+                className={`station-line${isActive ? ' active' : ''}${isGlowing ? ' glow-sweep' : ''}`}
+                style={isGlowing ? { animationDelay: `${(i - activeStart) * 60}ms` } : undefined}
+              />
+            );
+          })}
+        </div>
         <div id="stars" />
         <div id="stars2" />
         <div id="stars3" />
+        <div id="stars4" />
+        <div id="stars5" />
       </div>
     </StyledWrapper>
   );
@@ -14,18 +181,321 @@ const StarryBackground = () => {
 
 const StyledWrapper = styled.div`
   position: fixed;
-  inset: 0;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
   z-index: 0;
   pointer-events: none;
   overflow: hidden;
 
   .container {
-    height: 100%;
+    width: 100vw;
+    height: 100vh;
+    background: radial-gradient(ellipse at 100% 100%, #1b2735 0%, #121a24 40%, #090a0f 100%);
+    transform: scaleX(${props => props.$scaleX});
+    transform-origin: left center;
+    position: relative;
+  }
+
+  .earth-img {
+    position: absolute;
+    top: 0;
+    left: 0;
     width: 100%;
-    background: radial-gradient(ellipse at bottom, #1b2735 0%, #090a0f 100%);
+    height: 100%;
+    object-fit: cover;
+    mix-blend-mode: screen;
+    opacity: 0.8;
+    pointer-events: none;
+    z-index: -1;
+  }
+
+  .planet {
+    position: absolute;
+    border-radius: 50%;
+    opacity: 0;
+    transform: scale(0.8);
+    transition: opacity 1.2s ease, transform 1.2s ease;
+    z-index: 1;
+    pointer-events: none;
     overflow: hidden;
   }
 
+  .planet-visible {
+    opacity: 1;
+    transform: scale(1);
+  }
+
+  .planet-texture {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 50%;
+  }
+
+  .planet-shading {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    background: radial-gradient(circle at 35% 35%, transparent 30%, rgba(0,0,0,0.4) 60%, rgba(0,0,0,0.8) 100%);
+  }
+
+  .planet-atmosphere {
+    position: absolute;
+    top: -2px;
+    left: -2px;
+    right: -2px;
+    bottom: -2px;
+    border-radius: 50%;
+  }
+
+  .planet-ring {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 170%;
+    height: 35%;
+    transform: translate(-50%, -50%) rotateX(75deg);
+    border: 2px solid rgba(232, 201, 109, 0.3);
+    border-radius: 50%;
+    box-shadow: 0 0 15px rgba(232, 201, 109, 0.15), inset 0 0 10px rgba(232, 201, 109, 0.1);
+    background: radial-gradient(ellipse, transparent 55%, rgba(232, 201, 109, 0.08) 65%, rgba(200, 170, 80, 0.12) 75%, transparent 85%);
+  }
+  .ship-img{
+    position: absolute;
+    top: 60px;
+    right:-186px;
+    width: 10%;
+    height: auto;
+    opacity: 0.9;
+    z-index: 2;
+    mix-blend-mode: screen;
+  }
+
+  .planet-name-badge {
+    position: absolute;
+    top: 140px;
+    right: -170px;
+    z-index: 4;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 14px 5px 10px;
+    background: rgba(0, 0, 0, 0.5);
+    border: 1px solid rgba(245, 158, 11, 0.3);
+    border-radius: 20px;
+    backdrop-filter: blur(8px);
+    animation: badgeSlideIn 0.6s ease-out;
+  }
+
+  .planet-name-icon {
+    font-size: 8px;
+    color: #f59e0b;
+    filter: drop-shadow(0 0 4px rgba(245, 158, 11, 0.6));
+    animation: badgePulse 2s ease-in-out infinite;
+  }
+
+  .planet-name-text {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: rgba(255, 255, 255, 0.9);
+    text-shadow: 0 0 8px rgba(245, 158, 11, 0.3);
+  }
+
+  @keyframes badgeSlideIn {
+    0% {
+      opacity: 0;
+      transform: translateX(15px);
+    }
+    100% {
+      opacity: 1;
+      transform: translateX(0);
+    }
+  }
+
+  @keyframes badgePulse {
+    0%, 100% { opacity: 0.6; }
+    50% { opacity: 1; }
+  }
+
+  .speed-lines {
+    position: absolute;
+    top: 0;
+    right: -186px;
+    width: 300px;
+    height: 100%;
+    background: transparent;
+    z-index: 1;
+    box-shadow:
+      -20px 80px rgba(255,255,255,0.6),
+      -60px 160px rgba(255,255,255,0.4),
+      -10px 250px rgba(255,255,255,0.5),
+      -40px 340px rgba(255,255,255,0.3),
+      -25px 430px rgba(255,255,255,0.6),
+      -70px 520px rgba(255,255,255,0.35),
+      -15px 610px rgba(255,255,255,0.5),
+      -50px 700px rgba(255,255,255,0.4),
+      -30px 790px rgba(255,255,255,0.55),
+      -80px 880px rgba(255,255,255,0.3),
+      -20px 970px rgba(255,255,255,0.45),
+      -55px 1060px rgba(255,255,255,0.5),
+      -35px 1150px rgba(255,255,255,0.35),
+      -10px 1240px rgba(255,255,255,0.6),
+      -65px 1330px rgba(255,255,255,0.4),
+      -45px 1420px rgba(255,255,255,0.5),
+      -20px 1510px rgba(255,255,255,0.3),
+      -75px 1600px rgba(255,255,255,0.55),
+      -30px 1690px rgba(255,255,255,0.4),
+      -50px 1780px rgba(255,255,255,0.45);
+    width: 2px;
+    height: 2px;
+    animation: speedFly 3s linear infinite;
+  }
+  .speed-lines:after {
+    content: '';
+    position: absolute;
+    top: 2000px;
+    width: 1px;
+    height: 1px;
+    background: transparent;
+    box-shadow:
+      -20px 80px rgba(255,255,255,0.6),
+      -60px 160px rgba(255,255,255,0.4),
+      -10px 250px rgba(255,255,255,0.5),
+      -40px 340px rgba(255,255,255,0.3),
+      -25px 430px rgba(255,255,255,0.6),
+      -70px 520px rgba(255,255,255,0.35),
+      -15px 610px rgba(255,255,255,0.5),
+      -50px 700px rgba(255,255,255,0.4),
+      -30px 790px rgba(255,255,255,0.55),
+      -80px 880px rgba(255,255,255,0.3),
+      -20px 970px rgba(255,255,255,0.45),
+      -55px 1060px rgba(255,255,255,0.5),
+      -35px 1150px rgba(255,255,255,0.35),
+      -10px 1240px rgba(255,255,255,0.6),
+      -65px 1330px rgba(255,255,255,0.4),
+      -45px 1420px rgba(255,255,255,0.5),
+      -20px 1510px rgba(255,255,255,0.3),
+      -75px 1600px rgba(255,255,255,0.55),
+      -30px 1690px rgba(255,255,255,0.4),
+      -50px 1780px rgba(255,255,255,0.45);
+  }
+
+  .speed-lines2 {
+    position: absolute;
+    right: 40px;
+    width: 1px;
+    height: 1px;
+    background: transparent;
+    z-index: 1;
+    box-shadow:
+      -30px 50px rgba(255,255,255,0.5),
+      -15px 180px rgba(255,255,255,0.35),
+      -55px 310px rgba(255,255,255,0.6),
+      -40px 440px rgba(255,255,255,0.3),
+      -20px 570px rgba(255,255,255,0.5),
+      -70px 700px rgba(255,255,255,0.4),
+      -10px 830px rgba(255,255,255,0.55),
+      -45px 960px rgba(255,255,255,0.35),
+      -25px 1090px rgba(255,255,255,0.5),
+      -60px 1220px rgba(255,255,255,0.3),
+      -35px 1350px rgba(255,255,255,0.6),
+      -15px 1480px rgba(255,255,255,0.4),
+      -50px 1610px rgba(255,255,255,0.5),
+      -80px 1740px rgba(255,255,255,0.35),
+      -20px 1870px rgba(255,255,255,0.45);
+    animation: speedFly 2.5s linear infinite;
+  }
+  .speed-lines2:after {
+    content: '';
+    position: absolute;
+    top: 2000px;
+    width: 1px;
+    height: 1px;
+    background: transparent;
+    box-shadow:
+      -30px 50px rgba(255,255,255,0.5),
+      -15px 180px rgba(255,255,255,0.35),
+      -55px 310px rgba(255,255,255,0.6),
+      -40px 440px rgba(255,255,255,0.3),
+      -20px 570px rgba(255,255,255,0.5),
+      -70px 700px rgba(255,255,255,0.4),
+      -10px 830px rgba(255,255,255,0.55),
+      -45px 960px rgba(255,255,255,0.35),
+      -25px 1090px rgba(255,255,255,0.5),
+      -60px 1220px rgba(255,255,255,0.3),
+      -35px 1350px rgba(255,255,255,0.6),
+      -15px 1480px rgba(255,255,255,0.4),
+      -50px 1610px rgba(255,255,255,0.5),
+      -80px 1740px rgba(255,255,255,0.35),
+      -20px 1870px rgba(255,255,255,0.45);
+  }
+
+  .station-bar {
+    position: absolute;
+    top: 0;
+    right: -199px;
+    width: 20px;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: space-evenly;
+    z-index: 3;
+    padding: 40px 0;
+  }
+
+  .station-line {
+    width: 14px;
+    height: 2px;
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 1px;
+    box-shadow: 0 0 2px rgba(255, 255, 255, 0.1);
+    transition: all 0.4s ease;
+  }
+
+  .station-line.active {
+    background: rgba(255, 255, 255, 0.85);
+    box-shadow: 0 0 8px rgba(255, 255, 255, 0.6), 0 0 16px rgba(100, 180, 255, 0.4);
+  }
+
+  .station-line.glow-sweep {
+    animation: stationGlow 0.8s ease-out forwards;
+  }
+
+  @keyframes stationGlow {
+    0% {
+      background: rgba(255, 255, 255, 0.2);
+      box-shadow: 0 0 2px rgba(255, 255, 255, 0.1);
+      transform: scaleX(1);
+    }
+    30% {
+      background: rgba(100, 200, 255, 1);
+      box-shadow: 0 0 12px rgba(100, 200, 255, 0.9), 0 0 24px rgba(100, 180, 255, 0.6), 0 0 40px rgba(80, 160, 255, 0.3);
+      transform: scaleX(1.6);
+    }
+    100% {
+      background: rgba(255, 255, 255, 0.85);
+      box-shadow: 0 0 8px rgba(255, 255, 255, 0.6), 0 0 16px rgba(100, 180, 255, 0.4);
+      transform: scaleX(1);
+    }
+  }
+
+  @keyframes speedFly {
+    from {
+      transform: translateY(0px);
+    }
+    to {
+      transform: translateY(-2000px);
+    }
+  }
   #stars {
     width: 1px;
     height: 1px;
@@ -322,6 +792,146 @@ const StyledWrapper = styled.div`
     to {
       transform: translateY(-2000px);
     }
+  }
+
+  #stars4 {
+    width: 1px;
+    height: 1px;
+    background: transparent;
+    box-shadow:
+      120px 320px #fff, 780px 1450px #fff, 1320px 580px #fff,
+      450px 1120px #fff, 1680px 890px #fff, 230px 1780px #fff,
+      950px 340px #fff, 1540px 1650px #fff, 680px 210px #fff,
+      1100px 1390px #fff, 310px 960px #fff, 1860px 470px #fff,
+      560px 1830px #fff, 1420px 130px #fff, 840px 1560px #fff,
+      170px 680px #fff, 1250px 1910px #fff, 630px 420px #fff,
+      1780px 1200px #fff, 390px 1650px #fff, 1050px 90px #fff,
+      1600px 1480px #fff, 270px 530px #fff, 920px 1740px #fff,
+      1470px 360px #fff, 540px 1080px #fff, 1830px 1590px #fff,
+      110px 1350px #fff, 760px 620px #fff, 1390px 1870px #fff,
+      480px 280px #fff, 1150px 810px #fff, 1720px 1120px #fff,
+      340px 1490px #fff, 1560px 550px #fff, 660px 1680px #fff,
+      1280px 230px #fff, 820px 1940px #fff, 190px 1150px #fff,
+      1640px 720px #fff, 430px 380px #fff, 1070px 1620px #fff,
+      1900px 280px #fff, 580px 930px #fff, 1350px 1540px #fff,
+      250px 1870px #fff, 890px 490px #fff, 1510px 1310px #fff,
+      520px 1580px #fff, 1190px 140px #fff, 710px 1260px #fff,
+      1760px 840px #fff, 360px 470px #fff, 1030px 1790px #fff,
+      1630px 310px #fff, 140px 1020px #fff, 850px 650px #fff,
+      1440px 1440px #fff, 610px 160px #fff, 1220px 1680px #fff,
+      780px 870px #fff, 1570px 1130px #fff, 410px 1360px #fff,
+      1110px 540px #fff, 1840px 1760px #fff, 290px 740px #fff,
+      960px 1490px #fff, 1660px 60px #fff, 500px 1210px #fff,
+      1300px 890px #fff, 160px 1600px #fff, 870px 350px #fff,
+      1480px 1710px #fff, 640px 580px #fff, 1160px 1050px #fff,
+      1790px 430px #fff, 330px 1830px #fff, 1000px 260px #fff,
+      1580px 1380px #fff, 220px 920px #fff, 940px 1160px #fff,
+      1700px 640px #fff, 460px 1530px #fff, 1130px 300px #fff,
+      1850px 1880px #fff, 570px 770px #fff, 1360px 1240px #fff,
+      750px 50px #fff, 1500px 980px #fff, 380px 1710px #fff,
+      1080px 430px #fff, 1670px 1560px #fff, 200px 860px #fff,
+      1240px 620px #fff, 530px 1340px #fff, 1810px 190px #fff,
+      690px 1100px #fff, 1410px 780px #fff, 300px 1460px #fff;
+    animation: animStar 70s linear infinite;
+  }
+  #stars4:after {
+    content: " ";
+    position: absolute;
+    top: 2000px;
+    width: 1px;
+    height: 1px;
+    background: transparent;
+    box-shadow:
+      120px 320px #fff, 780px 1450px #fff, 1320px 580px #fff,
+      450px 1120px #fff, 1680px 890px #fff, 230px 1780px #fff,
+      950px 340px #fff, 1540px 1650px #fff, 680px 210px #fff,
+      1100px 1390px #fff, 310px 960px #fff, 1860px 470px #fff,
+      560px 1830px #fff, 1420px 130px #fff, 840px 1560px #fff,
+      170px 680px #fff, 1250px 1910px #fff, 630px 420px #fff,
+      1780px 1200px #fff, 390px 1650px #fff, 1050px 90px #fff,
+      1600px 1480px #fff, 270px 530px #fff, 920px 1740px #fff,
+      1470px 360px #fff, 540px 1080px #fff, 1830px 1590px #fff,
+      110px 1350px #fff, 760px 620px #fff, 1390px 1870px #fff,
+      480px 280px #fff, 1150px 810px #fff, 1720px 1120px #fff,
+      340px 1490px #fff, 1560px 550px #fff, 660px 1680px #fff,
+      1280px 230px #fff, 820px 1940px #fff, 190px 1150px #fff,
+      1640px 720px #fff, 430px 380px #fff, 1070px 1620px #fff,
+      1900px 280px #fff, 580px 930px #fff, 1350px 1540px #fff,
+      250px 1870px #fff, 890px 490px #fff, 1510px 1310px #fff,
+      520px 1580px #fff, 1190px 140px #fff, 710px 1260px #fff,
+      1760px 840px #fff, 360px 470px #fff, 1030px 1790px #fff,
+      1630px 310px #fff, 140px 1020px #fff, 850px 650px #fff,
+      1440px 1440px #fff, 610px 160px #fff, 1220px 1680px #fff,
+      780px 870px #fff, 1570px 1130px #fff, 410px 1360px #fff,
+      1110px 540px #fff, 1840px 1760px #fff, 290px 740px #fff,
+      960px 1490px #fff, 1660px 60px #fff, 500px 1210px #fff,
+      1300px 890px #fff, 160px 1600px #fff, 870px 350px #fff,
+      1480px 1710px #fff, 640px 580px #fff, 1160px 1050px #fff,
+      1790px 430px #fff, 330px 1830px #fff, 1000px 260px #fff,
+      1580px 1380px #fff, 220px 920px #fff, 940px 1160px #fff,
+      1700px 640px #fff, 460px 1530px #fff, 1130px 300px #fff,
+      1850px 1880px #fff, 570px 770px #fff, 1360px 1240px #fff,
+      750px 50px #fff, 1500px 980px #fff, 380px 1710px #fff,
+      1080px 430px #fff, 1670px 1560px #fff, 200px 860px #fff,
+      1240px 620px #fff, 530px 1340px #fff, 1810px 190px #fff,
+      690px 1100px #fff, 1410px 780px #fff, 300px 1460px #fff;
+  }
+
+  #stars5 {
+    width: 2px;
+    height: 2px;
+    background: transparent;
+    box-shadow:
+      90px 540px rgba(255,255,255,0.8), 1750px 1320px rgba(255,255,255,0.6),
+      430px 1800px rgba(255,255,255,0.7), 1200px 270px rgba(255,255,255,0.9),
+      670px 960px rgba(255,255,255,0.5), 1560px 1680px rgba(255,255,255,0.8),
+      310px 150px rgba(255,255,255,0.6), 1890px 830px rgba(255,255,255,0.7),
+      820px 1470px rgba(255,255,255,0.9), 1380px 590px rgba(255,255,255,0.5),
+      160px 1140px rgba(255,255,255,0.8), 1040px 1870px rgba(255,255,255,0.6),
+      1680px 410px rgba(255,255,255,0.7), 550px 710px rgba(255,255,255,0.9),
+      1270px 1540px rgba(255,255,255,0.5), 380px 1300px rgba(255,255,255,0.8),
+      1810px 180px rgba(255,255,255,0.6), 750px 680px rgba(255,255,255,0.7),
+      1450px 1190px rgba(255,255,255,0.9), 240px 1950px rgba(255,255,255,0.5),
+      1130px 440px rgba(255,255,255,0.8), 600px 1620px rgba(255,255,255,0.6),
+      1920px 1060px rgba(255,255,255,0.7), 470px 330px rgba(255,255,255,0.9),
+      1340px 1750px rgba(255,255,255,0.5), 130px 870px rgba(255,255,255,0.8),
+      990px 1380px rgba(255,255,255,0.6), 1630px 520px rgba(255,255,255,0.7),
+      350px 1680px rgba(255,255,255,0.9), 1180px 90px rgba(255,255,255,0.5),
+      720px 1230px rgba(255,255,255,0.8), 1860px 1490px rgba(255,255,255,0.6),
+      510px 580px rgba(255,255,255,0.7), 1500px 1840px rgba(255,255,255,0.9),
+      200px 420px rgba(255,255,255,0.5), 880px 1570px rgba(255,255,255,0.8),
+      1710px 310px rgba(255,255,255,0.6), 450px 1040px rgba(255,255,255,0.7),
+      1260px 760px rgba(255,255,255,0.9), 80px 1890px rgba(255,255,255,0.5);
+    animation: animStar 120s linear infinite;
+  }
+  #stars5:after {
+    content: " ";
+    position: absolute;
+    top: 2000px;
+    width: 2px;
+    height: 2px;
+    background: transparent;
+    box-shadow:
+      90px 540px rgba(255,255,255,0.8), 1750px 1320px rgba(255,255,255,0.6),
+      430px 1800px rgba(255,255,255,0.7), 1200px 270px rgba(255,255,255,0.9),
+      670px 960px rgba(255,255,255,0.5), 1560px 1680px rgba(255,255,255,0.8),
+      310px 150px rgba(255,255,255,0.6), 1890px 830px rgba(255,255,255,0.7),
+      820px 1470px rgba(255,255,255,0.9), 1380px 590px rgba(255,255,255,0.5),
+      160px 1140px rgba(255,255,255,0.8), 1040px 1870px rgba(255,255,255,0.6),
+      1680px 410px rgba(255,255,255,0.7), 550px 710px rgba(255,255,255,0.9),
+      1270px 1540px rgba(255,255,255,0.5), 380px 1300px rgba(255,255,255,0.8),
+      1810px 180px rgba(255,255,255,0.6), 750px 680px rgba(255,255,255,0.7),
+      1450px 1190px rgba(255,255,255,0.9), 240px 1950px rgba(255,255,255,0.5),
+      1130px 440px rgba(255,255,255,0.8), 600px 1620px rgba(255,255,255,0.6),
+      1920px 1060px rgba(255,255,255,0.7), 470px 330px rgba(255,255,255,0.9),
+      1340px 1750px rgba(255,255,255,0.5), 130px 870px rgba(255,255,255,0.8),
+      990px 1380px rgba(255,255,255,0.6), 1630px 520px rgba(255,255,255,0.7),
+      350px 1680px rgba(255,255,255,0.9), 1180px 90px rgba(255,255,255,0.5),
+      720px 1230px rgba(255,255,255,0.8), 1860px 1490px rgba(255,255,255,0.6),
+      510px 580px rgba(255,255,255,0.7), 1500px 1840px rgba(255,255,255,0.9),
+      200px 420px rgba(255,255,255,0.5), 880px 1570px rgba(255,255,255,0.8),
+      1710px 310px rgba(255,255,255,0.6), 450px 1040px rgba(255,255,255,0.7),
+      1260px 760px rgba(255,255,255,0.9), 80px 1890px rgba(255,255,255,0.5);
   }
 `;
 
